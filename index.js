@@ -1,4 +1,5 @@
 // EDIT THIS FILE TO COMPLETE ASSIGNMENT QUESTION 1
+const { time } = require("console");
 const { chromium } = require("playwright");
 
 async function sortHackerNewsArticles() {
@@ -10,46 +11,72 @@ async function sortHackerNewsArticles() {
   // go to Hacker News
   await page.goto("https://news.ycombinator.com/newest");
   
-  // Function to get current article count
-  const getArticleCount = async () => {
-    return await page.evaluate(() => document.querySelectorAll('.age').length);
+  // Array to store collected article timestamps
+  let articleTimestamps = [];
+
+  // Function to collect new articles
+  const collectArticles = async () => {
+    const newTimestamps = await page.evaluate(() => {
+      return Array.from(document.querySelectorAll('.age'))
+        .map(ele => ele.getAttribute('title'))
+        .filter(Boolean);
+    });
+    
+    // Only add new timestamps we haven't seen before
+    newTimestamps.forEach(timestamp => {
+      if (!articleTimestamps.includes(timestamp)) {
+        articleTimestamps.push(timestamp);
+      }
+    });
+    
+    return articleTimestamps.length;
   };
 
-  // click more button to load more articles
-  let articleCount = await getArticleCount();
+  // Initial collection
+  let articleCount = await collectArticles();
+  console.log(`Initial articles collected: ${articleCount}`);
+
+  // Click "More" until we have at least 100 unique articles
   let attempt = 0;
-  let maxAttempts = 10;
+  const maxAttempts = 10;
+  
   while (articleCount < 100 && attempt < maxAttempts) {
-    try{
-      await page.click(".morelink");
-      await page.waitForTimeout(2000);
-      articleCount = await getArticleCount();
-      console.log("Loaded " + articleCount + " articles");
-    }
-    catch(e) {
-      console.log("Error loading more articles: " + e);
+    attempt++;
+    try {
+      await page.click('.morelink');
+      await page.waitForTimeout(2000); // Wait for new articles to load
+      
+      const newCount = await collectArticles();
+      console.log(`Attempt ${attempt}: Now have ${newCount} articles`);
+      
+      if (newCount <= articleCount) {
+        console.log('No new articles loaded, stopping');
+        break;
+      }
+      articleCount = newCount;
+    } catch (e) {
+      console.log('Error loading more articles:', e.message);
       break;
     }
   }
-  
-  // get the first 100 articles in the list of articles
-  const articles = await page.evaluate(() => {
-    const ageElements = Array.from(document.querySelectorAll(".age"));
-    return ageElements.slice(0,100).map((ele) => {
-      const title = ele.getAttribute("title");
-      return new Date(title).getTime();
-    });
-  });
 
-  // Validate we have exactly 100 articles
-  if (articles.length !== 100) {
-    throw new Error("Found " + articles.length + " articles. Only 100 articles are expected.");
+  // Get the first 100 articles as timestamps
+  const timestamps = articleTimestamps
+    .slice(0, 100)
+    .map(title => new Date(title).getTime());
+
+  // Validation of 100 articles count
+  if (timestamps.length < 100) {
+    throw new Error(`Only collected ${timestamps.length} articles, needed 100`);
+  }
+  else {
+    console.log(`Collected ${timestamps.length} articles`);
   }
 
   // Check if the articles are sorted from newest to oldest
   let isValid = true;
-  for(i=0; i < articles.length - 1; i++) {
-    if (articles[i] < articles[i + 1]) {
+  for(i=0; i < timestamps.length - 1; i++) {
+    if (timestamps[i] < timestamps[i + 1]) {
       isValid = false;
       break;
     }
