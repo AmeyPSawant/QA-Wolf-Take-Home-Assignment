@@ -17,7 +17,9 @@ async function sortHackerNewsArticles() {
 
   // click more button to load more articles
   let articleCount = await getArticleCount();
-  while (articleCount < 100) {
+  let attempt = 0;
+  let maxAttempts = 10;
+  while (articleCount < 100 && attempt < maxAttempts) {
     try{
       await page.click(".morelink");
       await page.waitForTimeout(2000);
