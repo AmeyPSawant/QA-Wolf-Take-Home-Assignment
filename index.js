@@ -10,6 +10,26 @@ async function sortHackerNewsArticles() {
   // go to Hacker News
   await page.goto("https://news.ycombinator.com/newest");
   
+  // Function to get current article count
+  const getArticleCount = async () => {
+    return await page.evaluate(() => document.querySelectorAll('.age').length);
+  };
+
+  // click more button to load more articles
+  let articleCount = await getArticleCount();
+  while (articleCount < 100) {
+    try{
+      await page.click(".morelink");
+      await page.waitForTimeout(2000);
+      articleCount = await getArticleCount();
+      console.log("Loaded " + articleCount + " articles");
+    }
+    catch(e) {
+      console.log("Error loading more articles: " + e);
+      break;
+    }
+  }
+  
   // get the first 100 articles in the list of articles
   const articles = await page.evaluate(() => {
     const ageElements = Array.from(document.querySelectorAll(".age"));
